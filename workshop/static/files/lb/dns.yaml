@@ -1,0 +1,75 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+# SPDX-License-Identifier: MIT-0
+
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  This template sets up a Route 53 configuration for 
+  a service hosted in two k8s clusters.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+         Label:
+          default: "Stack Configuration"
+         Parameters:
+          - Elb1
+          - Elb2
+          - zone1
+          - zone2
+          - VpcId
+          - VpcRegion
+
+Parameters:
+  Elb1:
+    Type: String
+    Description: "DNS name for the first microservice public endpoint"
+  Elb2:
+    Type: String
+    Description: "DNS name for the second microservice public endpoint"
+  zone1:
+    Type: String
+    Description: "First public endpoint zone"
+  zone2:
+    Type: String
+    Description: "Second public endpoint zone"
+  VpcId:
+    Type: "AWS::EC2::VPC::Id"
+    Description: "VPC ID"
+  VpcRegion:
+    Type: String
+    Description: "Region name"
+
+Resources:
+  svcZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties: 
+      Name: 'svc.local'
+      VPCs: 
+        - 
+          VPCId: !Ref VpcId
+          VPCRegion: !Ref VpcRegion
+  svc1a:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !Ref Elb1
+        HostedZoneId: !Ref zone1
+      HostedZoneId : !Ref svcZone
+      Name: "svc1.svc.local"
+      SetIdentifier: svc1a
+      Type: A
+      Weight: 50
+  svc1b:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !Ref Elb2
+        HostedZoneId: !Ref zone2
+      HostedZoneId : !Ref svcZone
+      Name: "svc1.svc.local"
+      SetIdentifier: svc1b
+      Type: A
+      Weight: 50

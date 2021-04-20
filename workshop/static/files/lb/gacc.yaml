@@ -1,0 +1,71 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+# SPDX-License-Identifier: MIT-0
+
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  This template sets up a Global Accelerator configuration for 
+  a service hosted in two k8s clusters.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+         Label:
+          default: "Stack Configuration"
+         Parameters:
+          - Nlb1
+          - Nlb2
+          - EndpointRegion
+
+Parameters:
+  Nlb1:
+    Type: String
+    Description: "ARN for the first microservice public endpoint"
+  Nlb2:
+    Type: String
+    Description: "ARN for the second microservice public endpoint"
+  EndpointRegion:
+    Type: String
+    Description: "Region name"
+
+Resources:
+  Accelerator:
+    Type: AWS::GlobalAccelerator::Accelerator
+    Properties:
+      Name: "k8s-DJ-accelerator"
+      Enabled: true
+
+  Listener:
+    Type: AWS::GlobalAccelerator::Listener
+    Properties:
+      AcceleratorArn:
+        Ref: Accelerator
+      Protocol: TCP
+      PortRanges:
+      - FromPort: 9080
+        ToPort: 9080
+
+  EndpointGroup:
+    Type: AWS::GlobalAccelerator::EndpointGroup
+    Properties:
+      ListenerArn:
+        Ref: Listener
+      EndpointGroupRegion:
+        Ref: EndpointRegion
+      TrafficDialPercentage: 100
+      EndpointConfigurations:
+      - EndpointId: !Ref Nlb1
+        Weight: 50
+      - EndpointId: !Ref Nlb2
+        Weight: 50
+
+
+Outputs:
+  AcceleratorDnsName:
+    Description: Accelerator DNS Name
+    Value:
+      Fn::GetAtt:
+      - Accelerator
+      - DnsName

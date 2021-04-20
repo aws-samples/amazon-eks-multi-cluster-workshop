@@ -1,0 +1,30 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+# SPDX-License-Identifier: MIT-0
+
+objstoreConfig: |-
+  type: s3
+  config:
+    bucket: {{thanos_bucket}}
+    endpoint: s3.{{region_name}}.amazonaws.com
+    insecure: false
+    signature_version2: false
+querier:
+  stores:
+    - {{thanos_1}}:10901
+    - {{thanos_2}}:10901
+bucketweb:
+  enabled: true
+compactor:
+  enabled: true
+storegateway:
+  enabled: true
+ruler:
+  enabled: true
+  alertmanagers:
+    - http://prometheus-operator-alertmanager.monitoring.svc.cluster.local:9093
+  config: |-
+    groups:
+      - name: "metamonitoring"
+        rules:
+          - alert: "PrometheusDown"
+            expr: absent(up{prometheus="monitoring/prometheus-operator"})

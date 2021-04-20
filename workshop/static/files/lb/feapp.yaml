@@ -1,0 +1,115 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+# SPDX-License-Identifier: MIT-0
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8multi
+  labels:
+    mesh: k8multi
+    appmesh.k8s.aws/sidecarInjectorWebhook: enabled
+---
+apiVersion: appmesh.k8s.aws/v1beta2
+kind: Mesh
+metadata:
+  name: k8multi
+spec:
+  namespaceSelector:
+    matchLabels:
+      mesh: k8multi
+---
+apiVersion: appmesh.k8s.aws/v1beta2
+kind: VirtualNode
+metadata:
+  name: front
+  namespace: k8multi
+spec:
+  podSelector:
+    matchLabels:
+      app: front
+  listeners:
+    - portMapping:
+        port: 8080
+        protocol: http
+  serviceDiscovery:
+    awsCloudMap:
+      namespaceName: svc2.svc.local
+      serviceName: front
+  backends:
+    - virtualService:
+        virtualServiceARN: colorapp-service-ARN
+---
+apiVersion: appmesh.k8s.aws/v1beta2
+kind: VirtualRouter
+metadata:
+  namespace: k8multi
+  name: front-router
+spec:
+  listeners:
+    - portMapping:
+        port: 8080
+        protocol: http
+  routes:
+    - name: color-route
+      httpRoute:
+        match:
+          prefix: /color
+        action:
+          weightedTargets:
+            - virtualNodeRef:
+                name: front
+              weight: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front
+  namespace: k8multi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: front
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: front
+        version: v1
+    spec:
+      containers:
+        - name: front
+          image: ECR_IMAGE_PREFIX/feapp
+          ports:
+            - containerPort: 8080
+          env:
+            - name: "PORT"
+              value: "8080"
+            - name: "COLOR_HOST"
+              value: "colorapp.k8multi.svc.cluster.local:8080"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: colorapp
+  namespace: k8multi
+spec:
+  ports:
+    - protocol: TCP
+      port: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front
+  namespace: k8multi
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: front
+
